@@ -48,6 +48,36 @@ class Report(
         text(block)
     }
 
+    fun block(block: String) {
+        text("```\n$block\n```")
+    }
+
+    fun sql(sql: String) {
+        sql(listOf(sql))
+    }
+
+    fun sql(sql: List<String>) {
+        val block = "```sql\n${sql.joinToString(";\n")};\n```"
+        text(block)
+    }
+
+    fun sql(sql: List<String>, actor: String) {
+        sql(sql, actor, null)
+    }
+
+    fun sql(sql: List<String>, actor: String, result: String?) {
+        var block = "```sql\n"
+        if (actor.isNotBlank()) {
+            block += "-- $actor:\n"
+        }
+        block += sql.joinToString(";\n")
+        if (result?.isNotBlank() == true) {
+            block += "\n-- Result: $result"
+        }
+        block += "\n```"
+        text(block)
+    }
+
     @Synchronized
     fun writeToFile() {
         File(targetDir).mkdirs()

@@ -1,61 +1,66 @@
 package com.example.util
 
-import org.testcontainers.containers.GenericContainer
-import org.testcontainers.utility.DockerImageName
-import java.io.Closeable
+import com.github.dockerjava.core.DefaultDockerClientConfig
+import com.github.dockerjava.core.DockerClientConfig
+import com.github.dockerjava.core.DockerClientImpl
+import com.github.dockerjava.zerodep.ZerodepDockerHttpClient
+import java.io.File
 
-class Docker(private val r: Report) {
-    fun start(service: Service): Closeable {
-        r.text(
-            "Docker container: `${service.container.dockerImageName}`, command: `${service.container.commandParts.toList()}`",
-        )
-        service.container.start()
-        return Closeable {
-            service.container.stop()
-            println("Stopped Docker container: `${service.container.dockerImageName}`")
+class Docker {
+    private val config: DockerClientConfig = DefaultDockerClientConfig.createDefaultConfigBuilder()
+        .withDockerHost("unix:///var/run/docker.sock")
+        .withDockerTlsVerify(false)
+        .build()
+    private val httpClient = ZerodepDockerHttpClient.Builder().dockerHost(config.dockerHost).build()
+    private val dockerClient = DockerClientImpl.getInstance(config, httpClient)
+
+    fun isRunningInDocker() = File("/.dockerenv").exists()
+
+    fun startContainer(containerName: String) {
+        println("Starting $containerName...")
+        dockerClient.startContainerCmd(containerName).exec()
+        waitForContainer(containerName, 60)
+    }
+
+    fun stopContainer(containerName: String) {
+        println("Stopping $containerName...")
+        dockerClient.stopContainerCmd(containerName).exec()
+    }
+
+    fun waitForContainer(containerName: String, timeout: Int = 60) {
+        print("Waiting for $containerName to become healthy...")
+        var count = 0
+        while (true) {
+            if (count > timeout) {
+                println(" Fail")
+                throw Exception("Timeout waiting for $containerName to become healthy")
+            }
+            if (waitForContainer(containerName)) {
+                println(" OK")
+                return
+            } else {
+                print('.')
+                Thread.sleep(1000)
+                count++
+            }
         }
     }
 
-    enum class Service(val container: GenericContainer<*>) {
-        REDIS_NOP(
-            GenericContainer(DockerImageName.parse("redis:7-alpine"))
-                .withCommand("redis-server", "--save", "", "--appendonly", "no")
-                .withReuse(true)
-                .also { it.setPortBindings(listOf("6379:6379")) },
-        ),
-        REDIS_AOF(
-            GenericContainer(DockerImageName.parse("redis:7-alpine"))
-                .withCommand("redis-server", "--save", "", "--appendonly", "yes")
-                .withReuse(true)
-                .also { it.setPortBindings(listOf("6379:6379")) },
-        ),
-        REDIS_RDB(
-            GenericContainer(DockerImageName.parse("redis:7-alpine"))
-                .withCommand("redis-server", "--save", "5 1000", "--save", "1 100", "--appendonly", "no")
-                .withReuse(true)
-                .also { it.setPortBindings(listOf("6379:6379")) },
-        ),
-        BEANSTALKD_NOP(
-            GenericContainer(DockerImageName.parse("uretgec/beanstalkd-alpine"))
-                .withCommand("-F", "-z", maxMessageSize)
-                .withReuse(true)
-                .also { it.setPortBindings(listOf("11300:11300")) },
-        ),
-        BEANSTALKD_0S(
-            GenericContainer(DockerImageName.parse("uretgec/beanstalkd-alpine"))
-                .withCommand("-b", "/data", "-f", "0", "-z", maxMessageSize)
-                .withReuse(true)
-                .also { it.setPortBindings(listOf("11300:11300")) },
-        ),
-        BEANSTALKD_1S(
-            GenericContainer(DockerImageName.parse("uretgec/beanstalkd-alpine"))
-                .withCommand("-b", "/data", "-f", "1000", "-z", maxMessageSize)
-                .withReuse(true)
-                .also { it.setPortBindings(listOf("11300:11300")) },
-        ),
-    }
-
-    companion object {
-        private const val maxMessageSize = (1024 * 1024 * 10).toString()
+    private fun waitForContainer(containerName: String): Boolean {
+        val containerResponse = dockerClient.inspectContainerCmd(containerName).exec()
+        if (containerResponse.state.health != null) {
+            containerResponse.state.health?.let { health ->
+                if (health.status == "healthy") {
+                    return true
+                }
+            }
+        } else {
+            containerResponse.state.status?.let { status ->
+                if (status == "running") {
+                    return true
+                }
+            }
+        }
+        return false
     }
 }
