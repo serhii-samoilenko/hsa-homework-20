@@ -25,7 +25,8 @@ class Database(private val pool: ConnectionPool) {
         e.message
     }
 
-    fun queryData(sql: String): List<Map<String, Any?>> {
+    fun queryData(sql: String, report: Report? = null): List<Map<String, Any?>> {
+        report?.sql(sql)
         pool.connection().use { connection ->
             connection.createStatement().executeQuery(sql).use { rs ->
                 val columns = (1..rs.metaData.columnCount).map { rs.metaData.getColumnName(it) }
@@ -39,7 +40,8 @@ class Database(private val pool: ConnectionPool) {
         }
     }
 
-    fun query(sql: String) {
+    fun query(sql: String, report: Report? = null) {
+        report?.sql(sql)
         pool.connection().use { connection ->
             connection
                 .createStatement(TYPE_FORWARD_ONLY, CONCUR_READ_ONLY)
@@ -53,7 +55,7 @@ class Database(private val pool: ConnectionPool) {
         }
     }
 
-    fun querySingleValue(sql: String): Any = queryData(sql).first().values.first()!!
+    fun querySingleValue(sql: String, report: Report? = null): Any = queryData(sql, report).first().values.first()!!
 
-    fun queryFirstRow(sql: String): Map<String, Any?> = queryData(sql).first()
+    fun queryFirstRow(sql: String, report: Report? = null): Map<String, Any?> = queryData(sql, report).first()
 }

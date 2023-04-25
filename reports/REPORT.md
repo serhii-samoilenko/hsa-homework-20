@@ -16,11 +16,15 @@ GRANT REPLICATION SLAVE ON *.* TO 'slave_two'@'%';
 FLUSH PRIVILEGES;
 ```
 
-Master status:
+#### Master status:
+
+```sql
+SHOW MASTER STATUS;
+```
 
 ```
 File=mysql-bin.000003
-Position=2511
+Position=73719
 ```
 
 Preparing first slave:
@@ -32,7 +36,7 @@ CHANGE MASTER TO MASTER_HOST='mysql-master',
 MASTER_USER='slave_one',
 MASTER_PASSWORD='slave',
 MASTER_LOG_FILE='mysql-bin.000003',
-MASTER_LOG_POS=2511;
+MASTER_LOG_POS=73719;
 START SLAVE;
 ```
 
@@ -45,7 +49,7 @@ CHANGE MASTER TO MASTER_HOST='mysql-master',
 MASTER_USER='slave_two',
 MASTER_PASSWORD='slave',
 MASTER_LOG_FILE='mysql-bin.000003',
-MASTER_LOG_POS=2511;
+MASTER_LOG_POS=73719;
 START SLAVE;
 ```
 
@@ -59,18 +63,22 @@ PRIMARY KEY (id));;
 TRUNCATE TABLE test.users;
 ```
 
-Starting daemon to constantly populate master:
+#### Starting daemon to constantly populate master:
+
+```sql
+INSERT INTO test.users (name) VALUES ('${UUID.randomUUID()}');
+```
 
 ## Checking replication
 
-Checking slave statuses:
+#### Checking slave statuses:
 
 Slave one:
 
 ```
 Auto_Position=0
 Connect_Retry=60
-Exec_Master_Log_Pos=11000
+Exec_Master_Log_Pos=82520
 Get_master_public_key=0
 Last_Errno=0
 Last_IO_Errno=0
@@ -85,14 +93,14 @@ Master_SSL_Verify_Server_Cert=No
 Master_Server_Id=1
 Master_UUID=65256716-e2ea-11ed-9755-0242ac120002
 Master_User=slave_one
-Read_Master_Log_Pos=11963
+Read_Master_Log_Pos=83162
 Relay_Log_File=mysql-relay-bin.000002
-Relay_Log_Pos=8815
-Relay_Log_Space=9988
+Relay_Log_Pos=9127
+Relay_Log_Space=9979
 Relay_Master_Log_File=mysql-bin.000003
 SQL_Delay=0
 SQL_Remaining_Delay=null
-Seconds_Behind_Master=1
+Seconds_Behind_Master=0
 Skip_Counter=0
 Slave_IO_Running=Yes
 Slave_IO_State=Waiting for source to send event
@@ -107,7 +115,7 @@ Slave two:
 ```
 Auto_Position=0
 Connect_Retry=60
-Exec_Master_Log_Pos=11321
+Exec_Master_Log_Pos=82841
 Get_master_public_key=0
 Last_Errno=0
 Last_IO_Errno=0
@@ -122,14 +130,14 @@ Master_SSL_Verify_Server_Cert=No
 Master_Server_Id=1
 Master_UUID=65256716-e2ea-11ed-9755-0242ac120002
 Master_User=slave_two
-Read_Master_Log_Pos=11963
+Read_Master_Log_Pos=83162
 Relay_Log_File=mysql-relay-bin.000002
-Relay_Log_Pos=9136
-Relay_Log_Space=9988
+Relay_Log_Pos=9448
+Relay_Log_Space=9979
 Relay_Master_Log_File=mysql-bin.000003
 SQL_Delay=0
 SQL_Remaining_Delay=null
-Seconds_Behind_Master=1
+Seconds_Behind_Master=0
 Skip_Counter=0
 Slave_IO_Running=Yes
 Slave_IO_State=Waiting for source to send event
@@ -147,31 +155,31 @@ Slave one count: `28`
 
 Slave two count: `28`
 
-Slave data is in sync
+`Slave data is in sync`
 
 ## Turning off one of the slaves
 
-Stopping slave two:
+#### Stopping slave two
 
 Checking slave data:
 
-Master count: `85`
+Master count: `83`
 
-Slave one count: `85`
+Slave one count: `83`
 
-Slave data is in sync
+`Slave data is in sync`
 
-Starting slave two again:
+#### Starting slave two again
 
 Checking slave data:
 
-Master count: `165`
+Master count: `170`
 
-Slave one count: `165`
+Slave one count: `170`
 
-Slave two count: `165`
+Slave two count: `170`
 
-Slave data is in sync
+`Slave data is in sync`
 
 ## Trying to remove column on the read-write slave
 
@@ -183,18 +191,7 @@ Removing column on slave:
 ALTER TABLE test.users DROP COLUMN name;
 ```
 
-No exception
-
-Table description:
-
-```
-Default=null
-Extra=auto_increment
-Field=id
-Key=PRI
-Null=NO
-Type=int
-```
+Exception: `Can't DROP 'name'; check that column/key exists`
 
 ### On the read-only slave
 
@@ -210,11 +207,11 @@ Exception: `The MySQL server is running with the --read-only option so it cannot
 
 Checking slave data:
 
-Master count: `165`
+Master count: `171`
 
-Slave one count: `165`
+Slave one count: `171`
 
-Slave two count: `165`
+Slave two count: `171`
 
-Slave data is in sync
+`Slave data is in sync`
 

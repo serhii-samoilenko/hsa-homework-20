@@ -4,6 +4,7 @@ import com.example.util.ConnectionPool
 import com.example.util.Database
 import com.example.util.Docker
 import com.example.util.Report
+import org.apache.commons.lang3.ArrayUtils.insert
 import java.util.UUID
 import java.util.concurrent.Semaphore
 
@@ -31,8 +32,8 @@ fun runDemo() {
         "FLUSH PRIVILEGES",
         report = r,
     )
-    val masterStatus = master.queryFirstRow("SHOW MASTER STATUS")
-    r.text("Master status:")
+    r.h4("Master status:")
+    val masterStatus = master.queryFirstRow("SHOW MASTER STATUS", r)
     r.block(masterStatus.prettify())
     val masterLog = masterStatus["File"]!!
     val masterPos = masterStatus["Position"]!!
@@ -83,7 +84,8 @@ fun runDemo() {
         report = r,
     )
 
-    r.text("Starting daemon to constantly populate master:")
+    r.h4("Starting daemon to constantly populate master:")
+    r.sql("INSERT INTO test.users (name) VALUES ('\${UUID.randomUUID()}')")
 
     val insert = {
         master.execute("INSERT INTO test.users (name) VALUES ('${UUID.randomUUID()}')")
@@ -105,7 +107,7 @@ fun runDemo() {
 
     r.h2("Checking replication")
 
-    r.text("Checking slave statuses:")
+    r.h4("Checking slave statuses:")
     r.text("Slave one:")
     r.block(slaveOne.queryFirstRow("SHOW SLAVE STATUS").prettify())
     r.text("Slave two:")
@@ -122,9 +124,9 @@ fun runDemo() {
             count
         }.distinct().let { counts ->
             if (counts.size == 1) {
-                r.text("Slave data is in sync")
+                r.code("Slave data is in sync")
             } else {
-                r.text("**Slave data is not in sync**")
+                r.code("Slave data is not in sync")
             }
         }
         runInserts.release()
@@ -137,7 +139,7 @@ fun runDemo() {
     )
 
     r.h2("Turning off one of the slaves")
-    r.text("Stopping slave two:")
+    r.h4("Stopping slave two")
     docker.stopContainer("mysql-slave-two")
 
     Thread.sleep(3000)
@@ -146,7 +148,7 @@ fun runDemo() {
         "Slave one" to slaveOne,
     )
 
-    r.text("Starting slave two again:")
+    r.h4("Starting slave two again")
     docker.startContainer("mysql-slave-two")
     Thread.sleep(3000)
 
@@ -167,7 +169,7 @@ fun runDemo() {
         } else {
             r.text("No exception")
             r.text("Table description:")
-            r.block(connection.queryFirstRow("DESCRIBE test.users").prettify())
+            r.block(connection.queryFirstRow("DESCRIBE test.users").entries.joinToString { "${it.key}: ${it.value}" })
         }
     }
 
