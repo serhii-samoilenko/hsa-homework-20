@@ -6,7 +6,7 @@ Database: Replication
 ## Test project setup
 
 The demo is written in Kotlin and uses Gradle as a build tool.
-MysSQL replication setup is defined in the [docker-compose.yml](docker-compose.yml) file.
+MysSQL replication setup is defined in the [docker-compose.yaml](docker-compose.yaml) file.
 
 The `com.example.DemoKt.runDemo` function is used to run all the scenarios.
 It also writes the [REPORT.md](reports/REPORT.md) file as it executes the scenarios.
